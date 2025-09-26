@@ -1,5 +1,5 @@
 # 建置階段 - 添加 AS base 並統一架構
-FROM --platform=linux/amd64 node:20-alpine AS base
+FROM --platform=linux/amd64 node:20-slim AS base
 
 WORKDIR /app
 
@@ -15,7 +15,7 @@ RUN npx prisma generate
 RUN npm run build
 
 # 生產階段 - 統一使用 amd64 架構
-FROM --platform=linux/amd64 node:20-alpine AS production
+FROM --platform=linux/amd64 node:20-slim AS production
 
 WORKDIR /app
 
