@@ -4,8 +4,12 @@ FROM --platform=linux/amd64 node:20-alpine AS base
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci --only=production && npm cache clean --force
+RUN npm ci && npm cache clean --force
 
+# 複製 Prisma schema
+COPY prisma/ ./prisma/
+
+# 複製其他應用程式碼
 COPY . .
 RUN npx prisma generate
 RUN npm run build
@@ -18,6 +22,7 @@ WORKDIR /app
 # 從第一階段複製檔案
 COPY --from=base /app/.output /app/.output
 COPY --from=base /app/node_modules/.prisma /app/node_modules/.prisma
+COPY --from=base /app/prisma ./prisma
 COPY --from=base /app/package*.json ./
 
 RUN npm ci --only=production && npm cache clean --force
