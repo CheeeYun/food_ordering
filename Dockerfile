@@ -1,5 +1,5 @@
 # 使用官方 Node.js 20 作為基礎映像
-FROM --platform=linux/arm64 node:20-alpine AS base
+FROM --platform=linux/amd64 node:20-alpine
 
 # 設置工作目錄
 WORKDIR /app
