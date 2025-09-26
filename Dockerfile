@@ -27,8 +27,9 @@ COPY --from=base /app/package*.json ./
 
 RUN npm ci --only=production && npm cache clean --force
 
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S nuxt -u 1001
+# 修正用戶建立語法 - 適用於 Debian/Ubuntu (slim)
+RUN groupadd -r nodejs -g 1001
+RUN useradd -r -g nodejs -u 1001 nuxt
 
 USER nuxt
 
