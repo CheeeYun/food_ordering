@@ -1,0 +1,160 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Merchant {
+  id                        Int       @id @default(autoincrement())
+  name                      String    @db.VarChar(100)
+  lineId                    String    @unique @map("line_id") @db.VarChar(100)
+  username                  String?   @unique @db.VarChar(100)
+  password_hash             String?   @db.VarChar(255)
+  phone                     String?   @db.VarChar(20)
+  telegram_chat_id          String?   @db.VarChar(50)
+  subscriptionStatus        Boolean?  @default(false) @map("subscription_status")
+  subscription_start_date   DateTime? @db.DateTime(0)
+  subscription_end_date     DateTime? @db.DateTime(0)
+  line_menu_url             String?   @db.VarChar(255)
+  createdAt                 DateTime? @default(now()) @map("created_at") @db.Timestamp(0)
+  updatedAt                 DateTime? @default(now()) @updatedAt @map("updated_at") @db.Timestamp(0)
+  line_channel_access_token String?   @db.VarChar(255)
+  email                     String?   @db.VarChar(100)
+  store_name                String?   @db.VarChar(100)
+  store_description         String?   @db.Text
+  line_channel_id           String?   @db.VarChar(100)
+  line_channel_secret       String?   @db.VarChar(255)
+  address                   String?   @db.VarChar(100)
+  is_active                 Int?      @default(1) @db.TinyInt
+  manual_override_until_midnight Int? @default(0) @map("manual_override_until_midnight") @db.TinyInt // 手動控制狀態直到午夜 (0: 自動控制, 1: 手動控制)
+  last_reset_date               String? @map("last_reset_date") @db.VarChar(10) // 最後重置日期 YYYY-MM-DD
+  order_service_active      Int?      @default(0) @map("order_service_active") @db.TinyInt // 訂餐服務狀態（關店時仍可接受預訂單）
+  
+  // 商家自訂設定
+  available_dining_types    Json?     @map("available_dining_types") // JSON 陣列存放可用的用餐方式 ["takeaway", "dine-in", "delivery"]
+  available_payment_methods Json?     @map("available_payment_methods") // JSON 陣列存放可用的支付方式 ["cash", "card", "mobile"]
+  advance_discount_rate     Decimal?  @default(0) @map("advance_discount_rate") @db.Decimal(5, 2) // 提前1天訂餐折扣率 (0-100)
+  delivery_minimum_amount   Decimal?  @default(0) @map("delivery_minimum_amount") @db.Decimal(8, 2) // 免費外送金額
+  delivery_base_fee         Decimal?  @default(0) @map("delivery_base_fee") @db.Decimal(8, 2) // 基本外送費
+  delivery_free_km          Decimal?  @default(0) @map("delivery_free_km") @db.Decimal(5, 2) // 免費外送範圍(公里)
+  delivery_per_km_fee       Decimal?  @default(0) @map("delivery_per_km_fee") @db.Decimal(8, 2) // 每公里外送費
+  delivery_prepayment       Int?      @default(0) @map("delivery_prepayment") @db.TinyInt // 外送預先收款 (0: 關閉, 1: 開啟)
+  max_delivery_distance     Decimal?  @default(0) @map("max_delivery_distance") @db.Decimal(5, 2) // 最大外送距離 (公里)
+  bank_account              String?   @map("bank_account") @db.VarChar(100) // 收款帳號
+  linePay_channel_id        String?   @map("linePay_channel_id") @db.VarChar(100) // LINE Pay Channel ID
+  linePay_secret_key        String?   @map("linePay_secret_key") @db.VarChar(255) // LINE Pay Secret Key
+  
+  // 訂單統計欄位
+  total_orders              Int?      @default(0) @map("total_orders") // 累積訂單數
+  total_revenue             Decimal?  @default(0) @map("total_revenue") @db.Decimal(10, 2) // 累積金額
+  
+  products                  Product[]
+  businessHours            StoreBusinessHour[]
+  specialHours             StoreSpecialHour[]
+
+  @@map("merchants")
+}
+
+model Product {
+  id           Int                    @id @default(autoincrement())
+  merchant_id  Int                    @map("merchant_id")
+  name         String                 @db.VarChar(100)
+  description  String?                @db.Text
+  price        Decimal                @db.Decimal(8, 2)
+  sale_price   Decimal?               @map("sale_price") @db.Decimal(8, 2) // 特價
+  image_url    String?                @db.VarChar(500)
+  category     String?                @db.VarChar(50)
+  is_active    Boolean?               @default(true)
+  sort_order   Int?                   @default(0)
+  created_at   DateTime?              @default(now()) @db.Timestamp(0)
+  updated_at   DateTime?              @default(now()) @db.Timestamp(0)
+  note         String?                @db.Text
+  count        Int?                   @default(0) // 人氣點擊次數
+  optionGroups ProductOptionGroup[]
+  options      ProductOption[]
+  merchant     Merchant               @relation(fields: [merchant_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([merchant_id], map: "products_merchant_id_fkey")
+  @@map("products")
+}
+
+model ProductOption {
+  id         Int                 @id @default(autoincrement())
+  product_id Int                 @map("product_id")
+  name       String              @db.VarChar(100)
+  price      Decimal             @db.Decimal(8, 2)
+  is_active  Boolean?            @default(true)
+  sort_order Int?                @default(0)
+  created_at DateTime?           @default(now()) @db.Timestamp(0)
+  updated_at DateTime?           @default(now()) @db.Timestamp(0)
+  group_id   Int?
+  group      ProductOptionGroup? @relation(fields: [group_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_product_options_group")
+  product    Product             @relation(fields: [product_id], references: [id], onDelete: Cascade)
+
+  @@index([product_id], map: "product_id")
+  @@index([group_id], map: "fk_product_options_group")
+  @@map("product_options")
+}
+
+model ProductOptionGroup {
+  id              Int                     @id @default(autoincrement())
+  product_id      Int                     @map("product_id")
+  name            String                  @db.VarChar(100)
+  selection_type  SelectionType?          @default(single) @map("selection_type")
+  is_required     Boolean?                @default(false) @map("is_required")
+  sort_order      Int?                    @default(0) @map("sort_order")
+  created_at      DateTime?               @default(now()) @map("created_at") @db.Timestamp(0)
+  product         Product                 @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "product_option_groups_ibfk_1")
+  options         ProductOption[]
+
+  @@index([product_id], map: "product_id")
+  @@map("product_option_groups")
+}
+
+enum SelectionType {
+  single
+  multiple
+
+  @@map("product_option_groups_selection_type")
+}
+
+model StoreBusinessHour {
+  id                Int       @id @default(autoincrement())
+  merchant_id       Int       @map("merchant_id")
+  day_of_week       Int       @map("day_of_week") @db.TinyInt // 0=Sunday, 1=Monday...6=Saturday
+  is_open           Boolean   @default(true) @map("is_open")
+  open_time         String?   @map("open_time") @db.VarChar(8) // HH:MM:SS format
+  close_time        String?   @map("close_time") @db.VarChar(8) // HH:MM:SS format
+  break_start_time  String?   @map("break_start_time") @db.VarChar(8) // Optional break time
+  break_end_time    String?   @map("break_end_time") @db.VarChar(8) // Optional break time
+  created_at        DateTime  @default(now()) @map("created_at") @db.Timestamp(0)
+  updated_at        DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamp(0)
+  
+  merchant          Merchant  @relation(fields: [merchant_id], references: [id], onDelete: Cascade)
+  
+  @@unique([merchant_id, day_of_week])
+  @@index([merchant_id])
+  @@map("store_business_hours")
+}
+
+model StoreSpecialHour {
+  id          Int       @id @default(autoincrement())
+  merchant_id Int       @map("merchant_id")
+  date        DateTime  @db.Date // Special date
+  is_open     Boolean   @default(false) @map("is_open")
+  open_time   String?   @map("open_time") @db.VarChar(8) // HH:MM:SS format
+  close_time  String?   @map("close_time") @db.VarChar(8) // HH:MM:SS format
+  reason      String?   @db.VarChar(255) // Reason for special hours
+  created_at  DateTime  @default(now()) @map("created_at") @db.Timestamp(0)
+  updated_at  DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamp(0)
+  
+  merchant    Merchant  @relation(fields: [merchant_id], references: [id], onDelete: Cascade)
+  
+  @@unique([merchant_id, date])
+  @@index([merchant_id])
+  @@index([date])
+  @@map("store_special_hours")
+}
